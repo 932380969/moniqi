@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>时代OS：人生模拟器</title>
+    <style>
+        /* 基础暗黑UI设定 */
+        body { background-color: #0e1117; color: #fafafa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; display: flex; justify-content: center; overflow-x: hidden; user-select: none;}
+        #app-container { max-width: 900px; width: 100%; transition: opacity 0.5s; }
+        h1 { text-align: center; border-bottom: 1px solid #333; padding-bottom: 15px; letter-spacing: 2px; font-size: 1.8em;}
+        
+        /* 四维度看板 */
+        .dashboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; background: #1e212b; padding: 15px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); text-align: center;}
+        .metric-title { font-size: 0.85em; color: #ccc; margin-bottom: 5px; font-weight: bold;}
+        .metric-value { font-size: 2em; font-weight: bold; color: #4facfe; transition: color 0.3s;}
+        .val-warning { color: #ffc107; }
+        .val-danger { color: #ff4b4b; }
+
+        /* 题目展示区 */
+        .scenario-box { background: rgba(79, 172, 254, 0.1); border-left: 4px solid #4facfe; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .scenario-title { font-size: 1.2em; font-weight: bold; margin-bottom: 10px; color: #00f2fe;}
+        .scenario-desc { line-height: 1.6; font-size: 1em; }
+
+        /* 四象限选项区 */
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        button.option-btn { padding: 15px; background-color: #2b313e; color: white; border: 1px solid #555; border-radius: 8px; cursor: pointer; font-size: 0.95em; text-align: left; line-height: 1.4; transition: all 0.2s ease; }
+        button.option-btn:hover { background-color: #4facfe; color: #000; transform: translateY(-2px); border-color: #4facfe; box-shadow: 0 4px 10px rgba(79, 172, 254, 0.3);}
+        
+        /* 重置按钮 */
+        .reset-btn { width: 100%; padding: 15px; text-align: center; border: 1px solid #ff4b4b; background-color: rgba(255, 75, 75, 0.1); color: #ff4b4b; border-radius: 8px; cursor: pointer; margin-top: 10px; font-size: 1.1em; font-weight: bold; display: none;}
+        .reset-btn:hover { background-color: #ff4b4b; color: white; }
+        
+        /* 日志区 */
+        .log-list { margin-top: 20px;}
+        .log-item { background: #1e212b; padding: 10px; border-radius: 5px; margin-bottom: 8px; font-size: 0.85em; color: #aaa; border-left: 2px solid #555;}
+
+        /* ★ 幕间过渡结语黑屏 (后门触发器) ★ */
+        #transition-screen {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #050505; color: #fff; z-index: 5000;
+            flex-direction: column; justify-content: center; align-items: center;
+            padding: 40px; box-sizing: border-box; cursor: pointer;
+        }
+        .transition-box { max-width: 800px; line-height: 1.8; font-size: 1.2em; text-align: left; animation: fadeIn 0.8s ease-in; }
+        .transition-title { color: #ffc107; font-size: 1.5em; font-weight: bold; margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px;}
+        .click-hint { margin-top: 50px; color: #555; font-size: 0.9em; animation: pulse 2s infinite; text-align: center;}
+
+        /* ★ 终极黑白大结局 (Q10专属) ★ */
+        #finale-screen {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #000; color: #fff; z-index: 9999;
+            flex-direction: column; justify-content: center; align-items: center;
+            padding: 40px; box-sizing: border-box;
+        }
+        .finale-title { font-size: 2.5em; font-weight: bold; margin-bottom: 30px; letter-spacing: 5px; animation: fadeIn 2s ease-in; text-align: center;}
+        .finale-text { font-size: 1.4em; line-height: 2; max-width: 900px; text-align: justify; animation: fadeIn 3.5s ease-in; color: #ddd;}
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <h1>🌌 《时代OS：人生模拟器》公开展示版</h1>
+    
+    <div class="dashboard">
+        <div><div class="metric-title">🏗️ 星辰大海</div><div class="metric-value" id="val-macro">50</div></div>
+        <div><div class="metric-title">☕ 小确幸</div><div class="metric-value" id="val-micro">50</div></div>
+        <div><div class="metric-title">🎆 烟火人情</div><div class="metric-value" id="val-vitality">50</div></div>
+        <div><div class="metric-title">🛡️ 抗风险罩</div><div class="metric-value" id="val-shield">50</div></div>
+    </div>
+
+    <div id="game-area">
+        <div class="scenario-box">
+            <div class="scenario-title" id="q-title">加载中...</div>
+            <div class="scenario-desc" id="q-desc">系统正在初始化...</div>
+        </div>
+        <div class="options-grid" id="options-area"></div>
+        <button id="reset-btn" class="reset-btn" onclick="resetSystem()">🔄 格式化重置系统，有请下一位测试者</button>
+    </div>
+
+    <div class="log-list" id="log-list"></div>
+</div>
+
+<div id="transition-screen" onclick="resumeFromTransition()">
+    <div class="transition-box">
+        <div class="transition-title" id="trans-title">诊断报告</div>
+        <div id="trans-text">诊断内容...</div>
+        <div class="click-hint">[ 鼠标点击屏幕任意区域，进入下一阶段 ]</div>
+    </div>
+</div>
+
+<div id="finale-screen">
+    <div class="finale-title">最终内测报告</div>
+    <div class="finale-text">
+        <p>我们之所以做这个系统，是因为当代青年都被夹在“宏大叙事”与“微观生活”的拉扯之中。有人觉得星辰大海太远，不如退回被窝吃蛋挞；有人觉得追求小确幸太自私，必须当不食人间烟火的苦行僧。</p>
+        <p>但今天，这10道题告诉我们：<b>星辰大海是我们的底层操作系统，人间烟火是我们最美的前端 UI。</b></p>
+        <p>没有操作系统，UI 就是一触即碎的空壳；而没有丝滑的 UI，再强大的系统也不过是一堆冰冷的机房钢筋。我们这一代青年，既要有直面时代风暴的硬核骨气，也要有精准拿捏生活品质的世俗快乐。</p>
+        <p style="text-align: center; font-size: 1.2em; margin-top: 40px; color: #fff; font-weight: bold;">把星辰揣在兜里，把烟火吃进肚里。<br>这就是我们给时代的满分答卷。</p>
+    </div>
+</div>
+
+<script>
+    // 音频对象池预加载
+    const audioClick = new Audio('click.mp3'); 
+    let currentTransitionAudio = new Audio(); // 结语语音专用频道
+    const audioFinale = new Audio('good_end.mp3'); // 大结局专属音效
+
+    // 初始状态
+    let stats = { macro: 50, micro: 50, vitality: 50, shield: 50 };
+    let currentQId = 'q1';
+    let pendingNextAction = ''; // 记录幕间过渡后要去哪里
+
+    // --- 完整剧本数据 (已全部挂载 a/b/c 命名规则的选项语音) ---
+    const story = {
+        // 【第一阶段：初出茅庐】
+        "q1": { title: "第一幕 · 第1题：毕业十字路口", desc: "你毕业了。面对人生的第一个分叉路口，你手握几份不同的机会。", options: [
+            { text: "A. 接下大厂Offer，入职前去三亚连玩半个月，彻底放空自己。", d_mac: -5, d_mic: 15, d_vit: 0, d_shi: 0, log: "选择了极致安逸", next: "q2", audio: "a a1.m4a" },
+            { text: "B. 撕掉大厂Offer，报名西部超级工程，发誓在大西北扎根十年。", d_mac: 15, d_mic: -5, d_vit: 0, d_shi: 0, log: "选择了硬核奉献", next: "q2", audio: "b b1.m4a" },
+            { text: "C. 接下大厂Offer，在入职前的假期，帮家乡小镇写了助农网页。", d_mac: 10, d_mic: 5, d_vit: 10, d_shi: 0, log: "选择了全栈均衡", next: "q2", audio: "c c1.m4a" },
+            { text: "D. 听信他人游说，加入了一个只会“画大饼”的不靠谱创业公司。", d_mac: -10, d_mic: -10, d_vit: 0, d_shi: -10, log: "踩中画饼陷阱", next: "q2" }
+        ]},
+        "q2": { title: "第一幕 · 第2题：第一笔年终奖", desc: "工作满一年，你拿到了第一笔丰厚的年终奖。", options: [
+            { text: "A. 全款拿下一套限量版盲盒，预订周末的米其林大餐犒劳自己。", d_mac: 0, d_mic: 10, d_vit: 0, d_shi: -10, log: "消费主义狂欢", next: "q3", audio: "a a2.m4a" },
+            { text: "B. 全捐给偏远地区的科研基建项目，自己每天吃十块钱的盒饭。", d_mac: 15, d_mic: -10, d_vit: 0, d_shi: 0, log: "苦行僧式奉献", next: "q3", audio: "b b2.m4a" },
+            { text: "C. 一半存进银行作抗风险基金，剩下的和好友在大排档痛快搓一顿。", d_mac: 0, d_mic: 5, d_vit: 10, d_shi: 10, log: "兼顾储蓄与人情", next: "q3", audio: "c c2.m4a" },
+            { text: "D. 贷款买了一辆超出承受能力的豪车，开始过上还债的生活。", d_mac: 0, d_mic: -10, d_vit: 0, d_shi: -15, log: "陷入债务危机", next: "q3" }
+        ]},
+        "q3": { title: "第一幕 · 第3题：周末的充能抉择", desc: "连续高强度工作后迎来周末。街道办联合公司发起了一场“数字助老”的公益活动。", options: [
+            { text: "A. 假装没看见通知，在精致的公寓里点着昂贵的轻食外卖刷剧。", d_mac: 0, d_mic: 10, d_vit: -10, d_shi: 0, log: "躲在舒适圈", next: "check_act1", audio: "a a3.m4a" },
+            { text: "B. 强制要求疲惫的下属必须打卡参加公益，痛斥不来的人没责任感。", d_mac: 10, d_mic: -5, d_vit: -10, d_shi: 0, log: "道德绑架同事", next: "check_act1", audio: "b b3.m4a" },
+            { text: "C. 自主花两小时写了个适老化小工具捐给社区，下午约好友玩飞盘。", d_mac: 5, d_mic: 5, d_vit: 15, d_shi: 0, log: "高效且有人情味", next: "check_act1", audio: "c c3.m4a" },
+            { text: "D. 既不帮忙也不休息，在朋友圈发牢骚抱怨形式主义，内耗度过。", d_mac: -5, d_mic: -5, d_vit: -10, d_shi: 0, log: "纯粹的情绪内耗", next: "check_act1" }
+        ]},
+        
+        // 【第二阶段：分支剧情】
+        "q4A": { title: "第二幕 · 第4题(都市线)：职场福报与防线", desc: "大厂接下国家数字城市底座项目，工期极紧需连续加班。而此时你刚好抢到了音乐节门票。", options: [
+            { text: "A. 坚决不卷！编个理由果断请假，直接奔向音乐节现场狂欢蹦迪。", d_mac: -10, d_mic: 15, d_vit: 5, d_shi: 0, log: "选择放纵逃避", next: "q5A", audio: "a a4.m4a" },
+            { text: "B. 退掉门票把行军床搬进办公室，连续奋战并要求团队跟着死磕。", d_mac: 20, d_mic: -20, d_vit: -15, d_shi: 0, log: "变成加班机器", next: "q5A" },
+            { text: "C. 带领团队高效解耦提前交付，周末安心去音乐节彻底释放压力。", d_mac: 10, d_mic: 10, d_vit: 10, d_shi: 0, log: "硬实力平衡生活", next: "q5A", audio: "c c4.m4a" },
+            { text: "D. 门票没退班也加，重度摸鱼打卡，疯狂在朋友圈发小作文抱怨。", d_mac: -5, d_mic: -5, d_vit: -10, d_shi: 0, log: "职场严重划水", next: "q5A" }
+        ]},
+        "q5A": { title: "第二幕 · 第5题(都市线)：算法与大排档", desc: "你负责优化外卖算法。压榨商家能帮你拿巨额年终奖，但会导致楼下的老面馆彻底倒闭。", options: [
+            { text: "A. 只要年终奖！拉满算法拿提成吃米其林，假装看不见老店倒闭。", d_mac: 0, d_mic: 20, d_vit: -20, d_shi: -10, log: "资本无情收割", next: "q6A", audio: "a a5.m4a" },
+            { text: "B. 宁可项目流产也拒不修改算法，在内网呼吁退回传统堂食。", d_mac: -10, d_mic: -10, d_vit: 10, d_shi: -10, log: "强行螳臂当车", next: "q6A" },
+            { text: "C. 加入“传统手艺豁免机制”，奖金少拿了，但保住了深夜食堂。", d_mac: 10, d_mic: 5, d_vit: 20, d_shi: 0, log: "科技向善", next: "q6A", audio: "c c5.m4a" },
+            { text: "D. 觉得麻烦，直接把核心算法丢给实习生做，出了事让实习生背锅。", d_mac: -5, d_mic: 5, d_vit: -15, d_shi: -10, log: "甩锅逃避责任", next: "q6A" }
+        ]},
+        "q6A": { title: "第二幕 · 第6题(都市线)：外部制裁风暴", desc: "环境突变，海外对公司实施了严厉的技术封锁和供应链熔断，裁员潮开启。", options: [
+            { text: "A. 拿了N+1补偿拔腿就跑，去搞直播带货赚快钱，彻底放弃技术。", d_mac: -20, d_mic: 15, d_vit: 0, d_shi: -15, log: "放弃科技阵地", next: "check_act2", audio: "a a6.m4a" },
+            { text: "B. 自愿一分钱不拿靠吃泡面强撑，在简陋实验室手搓全栈国产系统。", d_mac: 25, d_mic: -20, d_vit: 0, d_shi: 0, log: "透支生命研发", next: "check_act2" },
+            { text: "C. 留队抱团取暖研发替代API，下班兼职赚外快补贴家用。", d_mac: 15, d_mic: 5, d_vit: 10, d_shi: 15, log: "理智抗风险", next: "check_act2", audio: "c c6.m4a" },
+            { text: "D. 每天散播“技术要崩”的焦虑情绪，消极怠工等待开除。", d_mac: -10, d_mic: -5, d_vit: -10, d_shi: -10, log: "沦为气氛毒药", next: "check_act2" }
+        ]},
+
+        "q4B": { title: "第二幕 · 第4题(基建线)：大漠星空与孤独", desc: "你在大西北工程基地待了两年。长期封闭社交圈断绝，此时城市向你抛出了清闲岗位的橄榄枝。", options: [
+            { text: "A. 实在受不了，立马提交调动申请，回城找个清闲岗位养老。", d_mac: -20, d_mic: 15, d_vit: -5, d_shi: 0, log: "当了逃兵", next: "q5B" },
+            { text: "B. 彻底扎根大漠五年不回家，拉黑相亲的父母，发誓献给大国重器。", d_mac: 20, d_mic: -20, d_vit: -15, d_shi: 0, log: "断绝人伦亲情", next: "q5B", audio: "b b4.m4a" },
+            { text: "C. 坚守岗位，自费买无人机拍大漠星空发朋友圈，吸引大批后辈。", d_mac: 15, d_mic: 10, d_vit: 20, d_shi: 0, log: "苦中作乐搞宣传", next: "q5B" },
+            { text: "D. 人留在基地但怨天尤人，工作敷衍，一到发薪日就买醉消愁。", d_mac: -10, d_mic: -5, d_vit: -10, d_shi: 0, log: "混吃等死", next: "q5B" }
+        ]},
+        "q5B": { title: "第二幕 · 第5题(基建线)：绿能与原生态", desc: "修特高压输电线路要穿过一个历史悠久的古村落，村民因对工程未知产生强烈抵触。", options: [
+            { text: "A. 迁就无理要求无限期停工，天天跟着村民在村头喝茶晒太阳。", d_mac: -25, d_mic: 15, d_vit: 10, d_shi: 0, log: "耽误国家工程", next: "q6B" },
+            { text: "B. 调动施工队强行拆迁动工，斥责村民“没有大局观”。", d_mac: 20, d_mic: -10, d_vit: -25, d_shi: 0, log: "激化社会矛盾", next: "q6B", audio: "b b5.m4a" },
+            { text: "C. 微调路线避开核心区，设立科普夜市让古村端上科技旅游饭碗。", d_mac: 15, d_mic: 5, d_vit: 25, d_shi: 0, log: "实现多方共赢", next: "q6B" },
+            { text: "D. 夹在中间装聋作哑，任由双方矛盾激化爆发冲突。", d_mac: -10, d_mic: 0, d_vit: -15, d_shi: 0, log: "毫无担当", next: "q6B" }
+        ]},
+        "q6B": { title: "第二幕 · 第6题(基建线)：极限物资调度", desc: "物资短缺。为保住工程，你需要调用原本给周边小镇冬季供暖的备用电能。", options: [
+            { text: "A. 彻底停工！把保暖物资全送给小镇，自己和同事冻得瑟瑟发抖。", d_mac: -25, d_mic: 10, d_vit: 15, d_shi: -10, log: "放弃阵地", next: "check_act2" },
+            { text: "B. 大局为重！强行征用小镇电能保工程准时点火，让居民硬抗寒冬。", d_mac: 25, d_mic: -10, d_vit: -25, d_shi: 0, log: "无视百姓死活", next: "check_act2", audio: "b b6.m4a" },
+            { text: "C. 压缩能耗分享余热供暖；发动居民帮忙组装非核心部件。", d_mac: 15, d_mic: 10, d_vit: 20, d_shi: 15, log: "军民鱼水情", next: "check_act2" },
+            { text: "D. 面对两难直接心理崩溃，关闭通讯申请原位休眠等待救援。", d_mac: -15, d_mic: -5, d_vit: 0, d_shi: -15, log: "心理防线崩溃", next: "check_act2" }
+        ]},
+
+        // 【第三阶段：顶层视野】
+        "q7": { title: "第三幕 · 第7题：消失的无码老人", desc: "社会服务升级为无人工的自动系统。大批不会用智能手机的老年人寸步难行。作为决策者你打算？", options: [
+            { text: "A. 自己花钱雇助理照顾父母，不管别的老人死活。", d_mac: 0, d_mic: 15, d_vit: -15, d_shi: 0, log: "冷漠旁观", next: "q8", audio: "a a7.m4a" },
+            { text: "B. 时代必须向前！强行关停所有线下网点，逼迫老人被淘汰。", d_mac: 20, d_mic: -10, d_vit: -25, d_shi: 0, log: "效率暴君", next: "q8", audio: "b b7.m4a" },
+            { text: "C. 搞“无感适老化”底层升级，老人用旧卡也能刷码，保留现金点。", d_mac: 10, d_mic: 10, d_vit: 25, d_shi: 0, log: "技术充满温度", next: "q8", audio: "c c7.m4a" },
+            { text: "D. 觉得烫手，把皮球踢给其他部门，任由老人在雨里干着急。", d_mac: 0, d_mic: 0, d_vit: -10, d_shi: -10, log: "踢皮球大师", next: "q8" }
+        ]},
+        "q8": { title: "第三幕 · 第8题：绩点机器与路边摊", desc: "教育极度内卷，老师逼你给孩子施压去上辅导班。作为前辈你打算？", options: [
+            { text: "A. 快乐教育！退掉补习班，老子赚的钱够你花两辈子，让别人卷去。", d_mac: -15, d_mic: 25, d_vit: 0, d_shi: -15, log: "温室花朵", next: "q9", audio: "a a8.m4a" },
+            { text: "B. 铁血内卷！孩子10岁逼他手搓神经网络，培养硬核科学家。", d_mac: 25, d_mic: -20, d_vit: -20, d_shi: 0, log: "剥夺童年", next: "q9", audio: "b b8.m4a" },
+            { text: "C. 周六看火箭模型满足求知，周天带他吃大排档拿捏人间烟火气。", d_mac: 10, d_mic: 10, d_vit: 20, d_shi: 0, log: "满级育儿", next: "q9", audio: "c c8.m4a" },
+            { text: "D. 花重金全甩给封闭补习班，考砸了就在家里掀桌子骂人。", d_mac: 0, d_mic: -10, d_vit: -10, d_shi: -10, log: "外包式教育", next: "q9" }
+        ]},
+        "q9": { title: "第三幕 · 第9题：时代的谢幕与遗产", desc: "你到了退休边缘。海外基金劝你把钱转到海岛躺平；国内开源实验室正因缺钱面临流产。你打算？", options: [
+            { text: "A. 变卖资产去海岛躺平享受，国内技术死活与我无关。", d_mac: -25, d_mic: 25, d_vit: 0, d_shi: -20, log: "防御性撤退", next: "check_act3", audio: "a a9.m4a" },
+            { text: "B. 钱全捐给实验室，导致家庭破裂，晚年看感冒都精打细算。", d_mac: 25, d_mic: -25, d_vit: -10, d_shi: 0, log: "燃烧殆尽", next: "check_act3", audio: "b b9.m4a" },
+            { text: "C. 资助实验室，但规定核心专利惠及小微企业，且科研人员不许无效加班。", d_mac: 15, d_mic: 15, d_vit: 20, d_shi: 0, log: "行业教父", next: "check_act3", audio: "c c9.m4a" },
+            { text: "D. 把钱换成金条藏床底，每天在焦虑和疑神疑鬼中度过晚年。", d_mac: 0, d_mic: -10, d_vit: -15, d_shi: -10, log: "守财奴晚年", next: "check_act3" }
+        ]},
+
+        // 【终章】
+        "q10": { title: "终章 · 第10题：没有进度条的真实世界", desc: "【隐藏开发者弹窗】现实中从来没有系统会给你数值提示。在只有未知的真实世界里，什么才是真正的时代答卷？", options: [
+            { text: "A. 【务实派】管好自己的小账本，我不给社会添乱就是最高贡献。", d_mac: 0, d_mic: 0, d_vit: 0, d_shi: 0, log: "", next: "finale" },
+            { text: "B. 【理想派】总得有人去当垫脚石，我愿意去暗处敲一辈子核心代码。", d_mac: 0, d_mic: 0, d_vit: 0, d_shi: 0, log: "", next: "finale" },
+            { text: "C. 【破壁派】星辰与烟火从来就不是单选，我要在真实世界里拧在一起活。", d_mac: 0, d_mic: 0, d_vit: 0, d_shi: 0, log: "", next: "finale", audio: "c c10.m4a" },
+            { text: "D. 【掀桌派】关掉模拟器走下讲台。真正的时代在我们中午下课后的真实生活里！", d_mac: 0, d_mic: 0, d_vit: 0, d_shi: 0, log: "", next: "finale" }
+        ]}
+    };
+
+    function updateUI() {
+        // 允许数值跌破底线展示负数毒打
+        document.getElementById('val-macro').innerText = stats.macro;
+        document.getElementById('val-micro').innerText = stats.micro;
+        document.getElementById('val-vitality').innerText = stats.vitality;
+        document.getElementById('val-shield').innerText = stats.shield;
+
+        ['macro', 'micro', 'vitality', 'shield'].forEach(key => {
+            let el = document.getElementById(`val-${key}`);
+            el.className = 'metric-value ' + (stats[key] < 30 ? 'val-danger' : (stats[key] < 50 ? 'val-warning' : ''));
+        });
+    }
+
+    function renderQuestion(qId) {
+        currentQId = qId;
+        let q = story[qId];
+        document.getElementById('q-title').innerText = q.title;
+        document.getElementById('q-desc').innerText = q.desc;
+        
+        let html = '';
+        q.options.forEach(opt => {
+            // 将 opt.audio 传参进去
+            html += `<button class="option-btn" onclick="makeChoice(${opt.d_mac}, ${opt.d_mic}, ${opt.d_vit}, ${opt.d_shi}, '${opt.log}', '${opt.next}', '${opt.audio}')">${opt.text}</button>`;
+        });
+        document.getElementById('options-area').innerHTML = html;
+        
+        if (qId === 'q10') {
+            document.querySelectorAll('.metric-value').forEach(el => {
+                el.innerText = "???";
+                el.style.color = "#ff4b4b";
+                el.style.animation = "fadeIn 0.2s infinite alternate";
+            });
+        }
+    }
+
+    // 接收 audioFile 并执行播放逻辑
+    function makeChoice(d_mac, d_mic, d_vit, d_shi, logMsg, nextNode, audioFile) {
+        if (audioFile && audioFile !== 'undefined') {
+            let optAudio = new Audio(audioFile);
+            optAudio.play().catch(e => console.log("专属音频播放失败，可能因路径或浏览器限制", e));
+        } else {
+            audioClick.play().catch(e => {});
+        }
+        
+        stats.macro += d_mac; stats.micro += d_mic; stats.vitality += d_vit; stats.shield += d_shi;
+        
+        if (logMsg) {
+            let logList = document.getElementById('log-list');
+            logList.innerHTML = `<div class="log-item">▶ ${logMsg}</div>` + logList.innerHTML;
+        }
+        updateUI();
+
+        // 拦截结算逻辑，并绑定结语音频
+        if (nextNode === "check_act1") {
+            let title = "📌 第一阶段 · 新手保护期结束";
+            let text = "";
+            let transAudio = "";
+            
+            // 拦截三号同学（端水大师：活力值高）
+            if (stats.vitality >= 60) {
+                pendingNextAction = 'q4A';
+                text = "<b>系统诊断：新晋端水区区长</b><br><br>滴！新手村结束。别人在卷生卷死，你在左右逢源。你不仅薅到了大厂的羊毛，没耽误下班撸串，甚至还顺手刷了一波社会好感度。这手‘既要又要’的极限微操，系统看了都直呼内行。大风暴即将降临，请继续保持你这个嚣张的走位！";
+                transAudio = "c 结语1.m4a";
+            } 
+            // 拦截一号同学（精致利己：微观高）
+            else if (stats.micro >= stats.macro) {
+                pendingNextAction = 'q4A';
+                text = "<b>系统诊断：精致打工人初体验</b><br><br>滴！新手村体验卡到期。你成功保住了周末的飞盘和购物车，但也成功在时代大盘里活成了一个“纯前端挂件”。下一阶段，大厂的“福报”和行业寒冬将同时端上桌，请保护好发际线，准备迎战！";
+                transAudio = "a 结语1.m4a";
+            } 
+            // 拦截二号同学（铁血苦行僧：宏观高）
+            else {
+                pendingNextAction = 'q4B';
+                text = "<b>系统诊断：行走的正能量发射器</b><br><br>滴！新手村体验卡到期。你为了大局观疯狂燃烧自己，但系统怀疑你已经快忘了炸鸡是什么味道。恭喜你解锁“当代苦行僧”成就，即将把你空投到荒漠基建副本！";
+                transAudio = "b 结语1.m4a";
+            }
+            triggerTransition(title, text, transAudio);
+        } 
+        else if (nextNode === "check_act2") {
+            pendingNextAction = 'q7';
+            let title = "📌 第二阶段 · 时代阵痛期生还报告";
+            let text = "";
+            let transAudio = "";
+            
+            if (stats.macro >= stats.micro + 20 || stats.micro < 20 || stats.vitality < 20) {
+                text = "<b>系统诊断：行走的钢筋混凝土</b><br><br>系统向你致以崇高的敬意！你硬是靠着不回家的狠劲，把国家的科技大盘给顶住了。大国重器上有你的汗水，但你个人的世俗快乐指数已经快要归零了。醒醒！别把自己彻底活成村口的雕像，请给自己补点多巴胺，迈向人生下一站。";
+                transAudio = "b 结语2.m4a";
+            } 
+            else if (stats.micro >= stats.macro + 20 || stats.macro < 20 || stats.shield < 20) {
+                text = "<b>系统诊断：精装大平层里的脆皮打工人</b><br><br>这泼天的富贵算是让你接住了！你成功把烂摊子全甩了出去，自己天天吃香喝辣。但此时命运的齿轮转出了点小 Bug：因为没人维护底座电网，你家小区突发物理拉闸。看着那台几万块却冲不下水的智能马桶，再看着永远转圈圈的 WiFi，汗流浃背了吧老弟？你这几百平的豪宅，现在的唯一功能，就是在黑灯瞎火里辅助你独自破防。请保护好你脆弱的发际线，准备进入人生的下半场。";
+                transAudio = "a 结语2.m4a";
+            } else {
+                text = "<b>系统诊断：时代的Bug修复师</b><br><br>系统直呼内行！你居然在黑天鹅风暴里玩了一手漂亮的“极限微操”，一边给国产技术抱团取暖，一边还能稳住自己的大排档和肉夹馍。不愧是全班最强端水大师。接下来，更具全局视野的选择在等着你，保持这个优雅的姿势继续前进。";
+                transAudio = "c 结语2.m4a";
+            }
+            triggerTransition(title, text, transAudio);
+        } 
+        else if (nextNode === "check_act3") {
+            let title = "📌 第三阶段结束 · 晚年风骨诊断书";
+            let text = "";
+            let transAudio = "";
+            
+            if (stats.micro >= stats.macro + 20 || stats.macro < 20 || stats.shield < 20) {
+                text = "<b>系统诊断：坐在金马桶上的原始人</b><br><br>系统扫描完毕。恭喜你，你成功用一生的精明在海岛上活成了全村首富。但由于你当年对公共大盘的抽血，小岛经常陷入黑暗。现在的你，正坐在价值百万但因为断电无法加热的智能马桶上，吹着常温海风。生于精致，卒于没基建。游戏结束。";
+                pendingNextAction = 'end_bad';
+                transAudio = "a 结语3.m4a";
+            } else if (stats.macro >= stats.micro + 20 || stats.micro < 20 || stats.vitality < 20) {
+                text = "<b>系统诊断：科研所里的荣誉不锈钢保安</b><br><br>系统扫描完毕。你的一生感天动地，名字被挂在科技馆最显眼的位置。但可惜的是，你家里空空如也，连个说话的伴儿都没有。你把自己铸成了大国重器上的一颗不锈钢螺丝，坚固、伟大、但冰冷。游戏结束。";
+                pendingNextAction = 'end_bad';
+                transAudio = "b 结语3.m4a";
+            } else {
+                text = "<b>系统诊断：穿着人字拖的行业教父</b><br><br>系统扫描完毕。不得不说，你把这款系统玩成了你的个人秀。你既是硬核实验室背后的金主爸爸，又是楼下烧烤摊最受欢迎的赵大爷。星辰大海被你揣在兜里，人间烟火被你吃进肚里。";
+                pendingNextAction = 'q10'; // 只有均衡者进入隐藏关卡
+                transAudio = "c 结语3.m4a";
+            }
+            triggerTransition(title, text, transAudio);
+        } 
+        else if (nextNode === "finale") {
+            document.getElementById('app-container').style.opacity = 0;
+            setTimeout(() => {
+                document.getElementById('app-container').style.display = 'none';
+                document.getElementById('finale-screen').style.display = 'flex';
+                audioFinale.play().catch(e=>{});
+            }, 500);
+        } else {
+            renderQuestion(nextNode);
+        }
+    }
+
+    // 触发幕间纯黑过渡页
+    function triggerTransition(title, text, audioFile) {
+        document.getElementById('app-container').style.display = 'none';
+        let ts = document.getElementById('transition-screen');
+        document.getElementById('trans-title').innerHTML = title;
+        document.getElementById('trans-text').innerHTML = text;
+        ts.style.display = 'flex';
+        
+        // 尝试播放结语语音
+        if (audioFile && audioFile !== 'undefined') {
+            try {
+                currentTransitionAudio.src = audioFile;
+                currentTransitionAudio.play().catch(e => console.log("等待交互或未找到音频"));
+            } catch(e) {}
+        }
+    }
+
+    // 点击黑屏任意处 -> 切入下一阶段
+    function resumeFromTransition() {
+        currentTransitionAudio.pause(); // 切页时停止播放语音
+        currentTransitionAudio.currentTime = 0;
+        
+        document.getElementById('transition-screen').style.display = 'none';
+        document.getElementById('app-container').style.display = 'block';
+
+        if (pendingNextAction === 'end_bad') {
+            // 前两位同学走到这里彻底结束，暴露重置按钮
+            document.getElementById('options-area').style.display = 'none';
+            document.getElementById('reset-btn').style.display = 'block';
+            document.getElementById('q-title').innerText = "测评终止";
+            document.getElementById('q-desc').innerText = "你已走完属于你这条路线的极致人生。请将舞台交给下一位测试者。";
+        } else {
+            renderQuestion(pendingNextAction);
+        }
+    }
+
+    function resetSystem() {
+        stats = { macro: 50, micro: 50, vitality: 50, shield: 50 };
+        document.getElementById('log-list').innerHTML = '';
+        document.getElementById('options-area').style.display = 'grid';
+        document.getElementById('reset-btn').style.display = 'none';
+        updateUI();
+        renderQuestion('q1');
+    }
+
+    // 初始化运行
+    updateUI();
+    renderQuestion('q1');
+</script>
+
+</body>
+</html>
