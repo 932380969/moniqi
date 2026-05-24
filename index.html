@@ -59,9 +59,66 @@
         
         @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
+
+        /* ================= 新增与修改：后门与显眼水印 UI ================= */
+        /* 【显眼改版】左下角作者与配音标志 */
+        .credits-box { 
+            position: fixed; 
+            bottom: 20px; 
+            left: 20px; 
+            background: rgba(30, 33, 43, 0.85);
+            border-left: 3px solid #00f2fe;
+            padding: 10px 15px;
+            border-radius: 0 8px 8px 0;
+            z-index: 10000; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            pointer-events: none;
+        }
+        .credits-author {
+            color: #00f2fe;
+            font-size: 1.1em;
+            font-weight: bold;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+            text-shadow: 0 0 5px rgba(0, 242, 254, 0.4);
+        }
+        .credits-voice {
+            color: #bbb;
+            font-size: 0.85em;
+            line-height: 1.4;
+        }
+        
+        /* 右下角隐形跳关后门 */
+        .cheat-menu { position: fixed; bottom: 20px; right: 20px; opacity: 0.05; transition: opacity 0.3s ease; z-index: 10000; }
+        .cheat-menu:hover { opacity: 1; }
+        .cheat-select { background: #1e212b; color: #4facfe; border: 1px solid #4facfe; padding: 6px 12px; border-radius: 5px; cursor: pointer; outline: none; font-weight: bold; font-family: inherit;}
+        /* ======================================================= */
     </style>
 </head>
 <body>
+
+<div class="credits-box">
+    <div class="credits-author">作者：赵涔程</div>
+    <div class="credits-voice">配音：林羲，赵涔程，邹胤哲</div>
+</div>
+
+<div class="cheat-menu">
+    <select class="cheat-select" onchange="cheatJump(this.value)">
+        <option value="">🤫 内部演示跳关...</option>
+        <option value="q1">▶ Q1: 毕业十字路口</option>
+        <option value="q2">▶ Q2: 第一笔年终奖</option>
+        <option value="q3">▶ Q3: 周末充能</option>
+        <option value="check_act1">🚩 黑屏：结语1</option>
+        <option value="q4A">▶ Q4A: 都市大厂线</option>
+        <option value="q4B">▶ Q4B: 西北基建线</option>
+        <option value="q5A">▶ Q5A: 算法与面馆</option>
+        <option value="check_act2">🚩 黑屏：结语2</option>
+        <option value="q7">▶ Q7: 无码老人</option>
+        <option value="check_act3">🚩 黑屏：结语3</option>
+        <option value="q10">🌟 Q10: 隐藏结局</option>
+        <option value="finale">🎬 播放最终大结局</option>
+    </select>
+</div>
 
 <div id="app-container">
     <h1>🌌 《时代OS：人生模拟器》公开展示版</h1>
@@ -104,6 +161,13 @@
 </div>
 
 <script>
+    window.onerror = function(msg, url, line) {
+        let desc = document.getElementById('q-desc');
+        if(desc) desc.innerHTML = "<span style='color:#ff4b4b; font-weight:bold;'>❌ 代码出错了！请检查是不是少复制了最后几行？<br>报错：" + msg + " (第 " + line + " 行)</span>";
+    };
+</script>
+
+<script>
     // 音频预加载与全局变量
     const audioClick = new Audio('click.mp3'); 
     let currentOptionAudio = new Audio();    
@@ -114,7 +178,7 @@
     let currentQId = 'q1';
     let pendingNextAction = ''; 
 
-    // --- 完整剧本数据 (已接入无空格 a1.m4a 命名规则) ---
+    // --- 完整剧本数据 ---
     const story = {
         "q1": { title: "第一幕 · 第1题：毕业十字路口", desc: "你毕业了。面对人生的第一个分叉路口，你手握几份不同的机会。", options: [
             { text: "A. 接下大厂Offer，入职前去三亚连玩半个月，彻底放空自己。", d_mac: -5, d_mic: 15, d_vit: 0, d_shi: 0, log: "选择了极致安逸", next: "q2", audio: "a1.m4a" },
@@ -223,7 +287,7 @@
             html += `<button class="option-btn" onclick="makeChoice(${opt.d_mac}, ${opt.d_mic}, ${opt.d_vit}, ${opt.d_shi}, '${opt.log}', '${opt.next}', '${opt.audio}')">${opt.text}</button>`;
         });
         document.getElementById('options-area').innerHTML = html;
-        document.getElementById('options-area').style.pointerEvents = 'auto'; // 恢复点击
+        document.getElementById('options-area').style.pointerEvents = 'auto'; 
         
         if (qId === 'q10') {
             document.querySelectorAll('.metric-value').forEach(el => {
@@ -234,9 +298,7 @@
         }
     }
 
-    // ★ 关键重构：点完选项先原定不动，播完音频再切屏 ★
     function makeChoice(d_mac, d_mic, d_vit, d_shi, logMsg, nextNode, audioFile) {
-        // 防止狂点导致逻辑错乱
         document.getElementById('options-area').style.pointerEvents = 'none';
 
         currentOptionAudio.pause();
@@ -245,9 +307,6 @@
         currentTransitionAudio.pause();
         currentTransitionAudio.currentTime = 0;
 
-        let hasOptionAudio = false; 
-
-        // 1. 数据立即变动，让观众看到所选结果的数值惩罚/奖励
         stats.macro += d_mac; stats.micro += d_mic; stats.vitality += d_vit; stats.shield += d_shi;
         if (logMsg) {
             let logList = document.getElementById('log-list');
@@ -255,7 +314,6 @@
         }
         updateUI();
 
-        // 2. 核心跳转调度器（将实际切页包装成一个动作）
         let executeNextAction = () => {
             if (nextNode === "check_act1" || nextNode === "check_act2" || nextNode === "check_act3") {
                 handleTransitionNode(nextNode);
@@ -271,28 +329,23 @@
             }
         };
 
-        // 3. 播放选项音频。如果没音频或者报错，瞬间切页防卡死；如果有音频，排队等播完再切页！
         if (audioFile && audioFile !== 'undefined') {
             currentOptionAudio.src = audioFile;
-            hasOptionAudio = true;
             let playPromise = currentOptionAudio.play();
             if (playPromise !== undefined) {
                 playPromise.then(() => {
-                    // 音频成功播放，开始排队，等播完再执行黑屏/下一题
                     currentOptionAudio.onended = executeNextAction;
                 }).catch(e => {
-                    // 容错：万一音频文件没加载出来，绝不能让页面卡死，立刻切页
                     console.log("音频播放失败", e);
                     executeNextAction();
                 });
             }
         } else {
             audioClick.play().catch(e => {});
-            setTimeout(executeNextAction, 300); // 稍微延迟一下给按键音时间，然后立刻切页
+            setTimeout(executeNextAction, 300); 
         }
     }
 
-    // 独立出来的幕间诊断逻辑（这个时候选项音频已经播完了）
     function handleTransitionNode(node) {
         let title = ""; let text = ""; let transAudio = "";
 
@@ -304,7 +357,7 @@
                 transAudio = "c结语1.m4a";
             } else if (stats.micro >= stats.macro) {
                 pendingNextAction = 'q4A';
-                text = "<b>系统诊断：精致打工人初体验</b><br><br>滴！新手村体验卡到期。你成功保住了周末的飞盘和购物车，但也成功在时代大盘里活成了一个“纯前端挂件”。下一阶段，大厂的“福报”和行业寒冬将同时端上桌，请保护好发际线，准备迎战！";
+                text = "<b>系统诊断：精致打工人初体验</b><br><br>滴！新手村体验卡到期. 你成功保住了周末的飞盘和购物车，但也成功在时代大盘里活成了一个“纯前端挂件”。下一阶段，大厂的“福报”和行业寒冬将同时端上桌，请保护好发际线，准备迎战！";
                 transAudio = "a结语1.m4a";
             } else {
                 pendingNextAction = 'q4B';
@@ -319,7 +372,7 @@
                 text = "<b>系统诊断：行走的钢筋混凝土</b><br><br>系统向你致以崇高的敬意！你硬是靠着不回家的狠劲，把国家的科技大盘给顶住了。大国重器上有你的汗水，但你个人的世俗快乐指数已经快要归零了。醒醒！别把自己彻底活成村口的雕像，请给自己补点多巴胺，迈向人生下一站。";
                 transAudio = "b结语2.m4a";
             } else if (stats.micro >= stats.macro + 20 || stats.macro < 20 || stats.shield < 20) {
-                text = "<b>系统诊断：精装大平层里的脆皮打工人</b><br><br>这泼天的富贵算是让你接住了！你成功把烂摊子全甩了出去，自己天天吃香喝辣。但此时命运的齿轮转出了点小 Bug：因为没人维护底座电网，你家小区突发物理拉闸。看着那台几万块却冲不下水的智能马桶，再看着永远转圈圈的 WiFi，汗流浃背了吧老弟？你这几百平的豪宅，现在的唯一功能，就是在黑灯瞎火里辅助你独自破防。请保护好你脆弱的发际线，准备进入人生的下半场。";
+                text = "<b>系统诊断：精装大平层里的脆皮打工人</b><br><br>这泼天的富贵算是让你接住了！你成功把烂摊子全甩了出去，自己天天吃香喝辣。但此时命运的齿轮转出了点小 Bug：因为没人维护底座电网，你家小区突发物理拉闸。看着那台几万块却冲不下水的智能马桶，再看着永远转圈圈的 WiFi，汗流泼背了吧老弟？你这几百平的豪宅，现在的唯一功能，就是在黑灯瞎火里辅助你独自破防。请保护好你脆弱的发际线，准备进入人生的下半场。";
                 transAudio = "a结语2.m4a";
             } else {
                 text = "<b>系统诊断：时代的Bug修复师</b><br><br>系统直呼内行！你居然在黑天鹅风暴里玩了一手漂亮的“极限微操”，一边给国产技术抱团取暖，一边还能稳住自己的大排档和肉夹馍。不愧是全班最强端水大师。接下来，更具全局视野的选择在等着你，保持这个优雅的姿势继续前进。";
@@ -332,7 +385,7 @@
                 text = "<b>系统诊断：坐在金马桶上的原始人</b><br><br>系统扫描完毕。恭喜你，你成功用一生的精明在海岛上活成了全村首富。但由于你当年对公共大盘的抽血，小岛经常陷入黑暗。现在的你，正坐在价值百万但因为断电无法加热的智能马桶上，吹着常温海风。生于精致，卒于没基建。游戏结束。";
                 pendingNextAction = 'end_bad';
                 transAudio = "a结语3.m4a";
-            } else if (stats.macro >= stats.micro + 20 || stats.micro < 20 || stats.vitality < 20) {
+            } else if (stats.macro >= stats.micro + 20 || stats.macro < 20 || stats.vitality < 20) {
                 text = "<b>系统诊断：科研所里的荣誉不锈钢保安</b><br><br>系统扫描完毕。你的一生感天动地，名字被挂在科技馆最显眼的位置。但可惜的是，你家里空空如也，连个说话的伴儿都没有。你把自己铸成了大国重器上的一颗不锈钢螺丝，坚固、伟大、但冰冷。游戏结束。";
                 pendingNextAction = 'end_bad';
                 transAudio = "b结语3.m4a";
@@ -343,7 +396,6 @@
             }
         }
 
-        // 执行黑屏切换并播放结语音频
         document.getElementById('app-container').style.display = 'none';
         let ts = document.getElementById('transition-screen');
         document.getElementById('trans-title').innerHTML = title;
@@ -358,7 +410,6 @@
         }
     }
 
-    // 点击黑屏任意处 -> 掐断结语音频，切入下一阶段
     function resumeFromTransition() {
         currentTransitionAudio.pause(); 
         currentTransitionAudio.currentTime = 0;
@@ -385,7 +436,33 @@
         renderQuestion('q1');
     }
 
-    // 初始化运行
+    function cheatJump(node) {
+        if (!node) return;
+        currentOptionAudio.pause();
+        currentOptionAudio.currentTime = 0;
+        currentOptionAudio.onended = null;
+        currentTransitionAudio.pause();
+        currentTransitionAudio.currentTime = 0;
+        
+        document.getElementById('options-area').style.pointerEvents = 'auto';
+
+        if (node.startsWith("check_")) {
+            handleTransitionNode(node);
+        } else if (node === "finale") {
+            document.getElementById('transition-screen').style.display = 'none';
+            document.getElementById('app-container').style.display = 'none';
+            document.getElementById('finale-screen').style.display = 'flex';
+            audioFinale.play().catch(e=>{});
+        } else {
+            document.getElementById('transition-screen').style.display = 'none';
+            document.getElementById('finale-screen').style.display = 'none';
+            document.getElementById('app-container').style.display = 'block';
+            document.getElementById('app-container').style.opacity = 1;
+            renderQuestion(node);
+        }
+        document.querySelector('.cheat-select').value = '';
+    }
+
     updateUI();
     renderQuestion('q1');
 </script>
